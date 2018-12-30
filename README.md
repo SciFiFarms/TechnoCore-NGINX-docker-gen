@@ -1,0 +1,1 @@
+# TechnoCore-NGINX-docker-gen
