@@ -1,0 +1,69 @@
+# This file was originally generated from the template in nginx-docker-gen/templates/
+
+# TODO: These should get generated automatically with nginx-docker-gen. 
+# The ports and service_names should get stored in the docker-compose file.
+# Although, I think this way, Swarm is actually doing the load balancing. 
+upstream home_assistant {
+	server home_assistant:8123;
+}
+upstream docs {
+	server docs:4000;
+}
+upstream node_red {
+	server node_red:1880;
+}
+upstream portainer {
+	server portainer:9000;
+}
+
+# Forward and http traffic to https.
+server {
+	listen 80 default_server;
+	server_name _; # This is just an invalid value which will never trigger on a real hostname.
+}
+
+server {
+	listen 443 ssl;
+    ssl_certificate /run/secrets/cert;
+    ssl_certificate_key /run/secrets/key;
+
+	location / {
+		proxy_set_header Host $host;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_buffering               off;
+		# I may not need proxy_set_header
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_pass https://home_assistant/;
+	}
+
+	location /docs/ {
+		proxy_pass http://docs/;
+	}
+
+	location /node_red/ {
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+
+		proxy_pass https://node_red/;
+	}
+
+	location /portainer/ {
+		proxy_http_version 1.1;
+		proxy_set_header Connection "";
+		proxy_pass https://portainer/;
+	}
+	location /portainer/api/websocket/ {
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+		proxy_http_version 1.1;
+		proxy_pass https://portainer/api/websocket/;
+	}
+
+}
